@@ -89,19 +89,8 @@ async def cmd_nudge(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def cmd_usage(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
-    usage = ctx.get_usage()
-    if not usage:
-        await update.message.reply_text("No usage tracked yet.")
-        return
-    lines = []
-    total_p = total_c = 0
-    for day, counts in sorted(usage.items()):
-        p, c = counts["prompt"], counts["completion"]
-        total_p += p
-        total_c += c
-        lines.append(f"{day}  {p+c:,} tokens  (↑{p:,} / ↓{c:,})")
-    lines.append(f"\nTotal  {total_p+total_c:,} tokens  (↑{total_p:,} / ↓{total_c:,})")
-    await update.message.reply_text("\n".join(lines))
+    budget = _config.get("budget_usd", 20.0)
+    await update.message.reply_text(ctx.get_usage_summary(budget))
 
 
 async def cmd_list(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:

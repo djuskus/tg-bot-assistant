@@ -1,9 +1,18 @@
 import json
 import os
-from datetime import date
+import time
+from datetime import date, datetime, timezone
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 USAGE_FILE = os.path.join(DATA_DIR, "usage.json")
+
+# GPT-4o pricing per token
+_COST_PER_PROMPT_TOKEN = 2.50 / 1_000_000
+_COST_PER_COMPLETION_TOKEN = 10.00 / 1_000_000
+
+
+def tokens_to_usd(prompt: int, completion: int) -> float:
+    return prompt * _COST_PER_PROMPT_TOKEN + completion * _COST_PER_COMPLETION_TOKEN
 
 
 def _today_path() -> str:
@@ -28,23 +37,58 @@ def append_exchange(role: str, content: str) -> None:
 
 def track_usage(prompt_tokens: int, completion_tokens: int) -> None:
     os.makedirs(DATA_DIR, exist_ok=True)
-    today = date.today().isoformat()
-    usage = {}
+    entries = []
     if os.path.exists(USAGE_FILE):
         with open(USAGE_FILE) as f:
-            usage = json.load(f)
-    day = usage.setdefault(today, {"prompt": 0, "completion": 0})
-    day["prompt"] += prompt_tokens
-    day["completion"] += completion_tokens
+            entries = json.load(f)
+    entries.append({
+        "ts": time.time(),
+        "prompt": prompt_tokens,
+        "completion": completion_tokens,
+    })
     with open(USAGE_FILE, "w") as f:
-        json.dump(usage, f, indent=2)
+        json.dump(entries, f, indent=2)
 
 
-def get_usage() -> dict:
+def get_usage_summary(budget_usd: float) -> str:
     if not os.path.exists(USAGE_FILE):
-        return {}
+        return "No usage tracked yet."
+
     with open(USAGE_FILE) as f:
-        return json.load(f)
+        entries = json.load(f)
+
+    now = time.time()
+    today_str = date.today().isoformat()
+
+    hour_p = hour_c = 0
+    day_p = day_c = 0
+    total_p = total_c = 0
+
+    for e in entries:
+        p, c, ts = e["prompt"], e["completion"], e["ts"]
+        total_p += p
+        total_c += c
+        if datetime.fromtimestamp(ts, tz=timezone.utc).date().isoformat() == today_str:
+            day_p += p
+            day_c += c
+        if now - ts <= 3600:
+            hour_p += p
+            hour_c += c
+
+    total_cost = tokens_to_usd(total_p, total_c)
+    day_cost = tokens_to_usd(day_p, day_c)
+    hour_cost = tokens_to_usd(hour_p, hour_c)
+    remaining = budget_usd - total_cost
+
+    lines = [
+        f"Last hour:  ${hour_cost:.4f}  ({hour_p+hour_c:,} tokens)",
+        f"Today:      ${day_cost:.4f}  ({day_p+day_c:,} tokens)",
+        f"Total:      ${total_cost:.4f}  ({total_p+total_c:,} tokens)",
+        f"",
+        f"Budget:     ${budget_usd:.2f}",
+        f"Remaining:  ${remaining:.4f}",
+    ]
+    return "\n".join(lines)
 
 
 def today_summary_prompt() -> str:

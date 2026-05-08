@@ -27,6 +27,8 @@ nudges:
   - Surface decisions that were deferred but never made
   - Ask about anything Dylan mentioned wanting to do but hasn't followed up on
 
+budget_usd: 20.00
+
 checkins:
   - Every morning: ask what the one most important thing to ship today is
   - Midday: ask if the morning goal is still on track or what got in the way

@@ -26,3 +26,9 @@ nudges:
   - Check if any project has gone more than 2 days without progress
   - Surface decisions that were deferred but never made
   - Ask about anything Dylan mentioned wanting to do but hasn't followed up on
+
+checkins:
+  - Every morning: ask what the one most important thing to ship today is
+  - Midday: ask if the morning goal is still on track or what got in the way
+  - End of day: ask what actually shipped, what didn't, and why
+  - Weekly: review which projects moved and which stalled — call out patterns

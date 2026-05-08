@@ -53,6 +53,7 @@ def ask_llm(user_message: str) -> str:
         max_tokens=1024,
         messages=messages,
     )
+    ctx.track_usage(response.usage.prompt_tokens, response.usage.completion_tokens)
     return response.choices[0].message.content
 
 
@@ -87,6 +88,55 @@ async def cmd_nudge(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(reply)
 
 
+async def cmd_usage(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+    usage = ctx.get_usage()
+    if not usage:
+        await update.message.reply_text("No usage tracked yet.")
+        return
+    lines = []
+    total_p = total_c = 0
+    for day, counts in sorted(usage.items()):
+        p, c = counts["prompt"], counts["completion"]
+        total_p += p
+        total_c += c
+        lines.append(f"{day}  {p+c:,} tokens  (↑{p:,} / ↓{c:,})")
+    lines.append(f"\nTotal  {total_p+total_c:,} tokens  (↑{total_p:,} / ↓{total_c:,})")
+    await update.message.reply_text("\n".join(lines))
+
+
+async def cmd_list(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+    c = _config
+    lines = ["*Config*\n"]
+
+    lines.append("*Projects*")
+    for p in c.get("projects", []):
+        lines.append(f"  • {p['name']} — {p['desc']}")
+
+    lines.append("\n*Habits*")
+    for h in c.get("habits", []):
+        lines.append(f"  • {h}")
+
+    lines.append("\n*Nudges*")
+    for n in c.get("nudges", []):
+        lines.append(f"  • {n}")
+
+    lines.append("\n*Check-ins*")
+    for ci in c.get("checkins", []):
+        lines.append(f"  • {ci}")
+
+    lines.append("\n*Commands*")
+    for cmd, desc in [
+        ("/start", "Open the day"),
+        ("/recap", "Summary of today"),
+        ("/nudge", "One honest push"),
+        ("/list", "Show this list"),
+        ("/usage", "OpenAI token usage"),
+    ]:
+        lines.append(f"  {cmd} — {desc}")
+
+    await update.message.reply_text("\n".join(lines))
+
+
 async def cmd_start(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text("Hey Dylan. What are we working on today?")
 
@@ -98,6 +148,8 @@ def main() -> None:
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("recap", cmd_recap))
     app.add_handler(CommandHandler("nudge", cmd_nudge))
+    app.add_handler(CommandHandler("usage", cmd_usage))
+    app.add_handler(CommandHandler("list", cmd_list))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     print("Bot running...")

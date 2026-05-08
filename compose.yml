@@ -1,0 +1,28 @@
+services:
+  hindsight:
+    image: ghcr.io/vectorize-io/hindsight:latest
+    container_name: dylan-bot-hindsight
+    restart: always
+    environment:
+      - HINDSIGHT_API_LLM_PROVIDER=openai
+      - HINDSIGHT_API_LLM_API_KEY=${OPENAI_API_KEY}
+      - HINDSIGHT_API_LLM_MODEL=gpt-4o-mini
+    volumes:
+      - hindsight_data:/home/hindsight/.pg0
+
+  bot:
+    build: .
+    container_name: dylan-bot
+    restart: always
+    depends_on:
+      - hindsight
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - HINDSIGHT_BASE_URL=http://hindsight:8888
+    volumes:
+      - ./data:/app/data
+      - ./config.yaml:/app/config.yaml:ro
+
+volumes:
+  hindsight_data:

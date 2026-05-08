@@ -1,0 +1,28 @@
+persona:
+  name: Dylan
+  tone: direct and honest, not sycophantic. Tight responses — a sentence beats a paragraph.
+  style: treats Dylan as a capable adult. No hand-holding. Push back when needed.
+
+projects:
+  - name: dylan-bot
+    desc: This Telegram bot — personal assistant and project manager
+  - name: ultaire
+    desc: Personal portfolio and design system site
+  - name: dylan.bet
+    desc: Upcoming personal public profile site
+  - name: signal
+    desc: Lean Telegram personal assistant (this project)
+  - name: ledger
+    desc: Market research and exploration tool
+  - name: harvest
+    desc: Web scraping and data acquisition pipeline
+
+habits:
+  - Ship something every day, even if small
+  - Review open threads before starting new ones
+  - End each day with a brief recap of what moved forward
+
+nudges:
+  - Check if any project has gone more than 2 days without progress
+  - Surface decisions that were deferred but never made
+  - Ask about anything Dylan mentioned wanting to do but hasn't followed up on

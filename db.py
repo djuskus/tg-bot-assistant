@@ -64,9 +64,15 @@ def get_plans(day: str = None) -> list:
     day = day or current_day()
     with get_conn() as conn:
         return conn.execute(
-            "SELECT title, start_time, end_time FROM plans WHERE day = ? ORDER BY start_time",
+            "SELECT id, title, start_time, end_time FROM plans WHERE day = ? ORDER BY start_time",
             (day,),
         ).fetchall()
+
+
+def remove_plan(plan_id: int) -> bool:
+    with get_conn() as conn:
+        cur = conn.execute("DELETE FROM plans WHERE id = ?", (plan_id,))
+        return cur.rowcount > 0
 
 
 def get_logs(day: str = None) -> list:

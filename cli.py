@@ -36,6 +36,34 @@ def cmd_list_blocks(args):
         print(f"  [{row['id']}]  {row['start_time']}–{row['end_time']}  {row['title']}")
 
 
+def cmd_list_logs(args):
+    if args.all:
+        with db.get_conn() as conn:
+            rows = conn.execute(
+                "SELECT day, timestamp, message FROM logs ORDER BY timestamp"
+            ).fetchall()
+        if not rows:
+            print("No logs yet.")
+            return
+        current = None
+        for row in rows:
+            if row["day"] != current:
+                current = row["day"]
+                print(f"\n— {current} —")
+            ts = row["timestamp"][11:16]
+            print(f"  {ts}  {row['message']}")
+    else:
+        day = args.date or db.current_day()
+        rows = db.get_logs(day)
+        if not rows:
+            print(f"No logs for {day}.")
+            return
+        print(f"Logs — {day}\n")
+        for row in rows:
+            ts = row["timestamp"][11:16]
+            print(f"  {ts}  {row['message']}")
+
+
 def cmd_rm_block(args):
     if db.remove_plan(args.id):
         print(f"Removed block {args.id}.")
@@ -60,11 +88,17 @@ def main():
     p = sub.add_parser("rm-block", help="Remove a plan block by id")
     p.add_argument("id", type=int)
 
+    p = sub.add_parser("list-logs", help="List log entries")
+    p.add_argument("--date", help="YYYY-MM-DD, defaults to today")
+    p.add_argument("--all", action="store_true", help="Show all logs across all days")
+
     args = parser.parse_args()
     if args.command == "add-block":
         cmd_add_block(args)
     elif args.command == "list-blocks":
         cmd_list_blocks(args)
+    elif args.command == "list-logs":
+        cmd_list_logs(args)
     elif args.command == "rm-block":
         cmd_rm_block(args)
     else:

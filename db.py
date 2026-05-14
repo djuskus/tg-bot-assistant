@@ -2,6 +2,9 @@ import os
 import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
+
+TZ = ZoneInfo("America/Denver")
 
 DB_PATH = Path(os.environ.get("BRAIN_DB", "/app/data/brain.db"))
 
@@ -34,19 +37,23 @@ def init_db():
         """)
 
 
+def now_mdt() -> datetime:
+    return datetime.now(TZ)
+
+
 def current_day() -> str:
-    now = datetime.now()
+    now = now_mdt()
     if now.hour < 3:
         now -= timedelta(days=1)
     return now.strftime("%Y-%m-%d")
 
 
 def add_log(message: str) -> str:
-    now = datetime.now()
+    now = now_mdt()
     with get_conn() as conn:
         conn.execute(
             "INSERT INTO logs (timestamp, message, day) VALUES (?, ?, ?)",
-            (now.isoformat(timespec="seconds"), message, current_day()),
+            (now.strftime("%Y-%m-%dT%H:%M:%S"), message, current_day()),
         )
     return now.strftime("%H:%M")
 

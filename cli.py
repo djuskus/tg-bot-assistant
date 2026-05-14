@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import db
 
@@ -73,13 +73,22 @@ def cmd_edit_logs(args):
             all_rows = conn.execute(
                 "SELECT day, timestamp, message FROM logs ORDER BY timestamp"
             ).fetchall()
-        days = sorted(set(r["day"] for r in all_rows))
+
+        today = db.now_mdt().date()
+        sunday = today - timedelta(days=(today.weekday() + 1) % 7)
+        week_days = {(sunday + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(7)}
+        existing_days = {r["day"] for r in all_rows}
+        days = sorted(week_days | existing_days)
+
+        entries = {}
+        for row in all_rows:
+            entries.setdefault(row["day"], []).append(row)
+
         lines = []
         for d in days:
             lines.append(f"# {d}\n\n")
-            for row in all_rows:
-                if row["day"] == d:
-                    lines.append(f"{row['timestamp'][11:16]}  {row['message']}\n")
+            for row in entries.get(d, []):
+                lines.append(f"{row['timestamp'][11:16]}  {row['message']}\n")
             lines.append("\n")
     else:
         day = args.date or db.current_day()

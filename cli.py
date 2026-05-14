@@ -68,13 +68,25 @@ def cmd_edit_logs(args):
     import os
     import tempfile
 
-    day = args.date or db.current_day()
-    rows = db.get_logs(day)
-
-    lines = [f"# Logs — {day}\n\n"]
-    for row in rows:
-        ts = row["timestamp"][11:16]
-        lines.append(f"{ts}  {row['message']}\n")
+    if args.all:
+        with db.get_conn() as conn:
+            all_rows = conn.execute(
+                "SELECT day, timestamp, message FROM logs ORDER BY timestamp"
+            ).fetchall()
+        days = sorted(set(r["day"] for r in all_rows))
+        lines = []
+        for d in days:
+            lines.append(f"# {d}\n\n")
+            for row in all_rows:
+                if row["day"] == d:
+                    lines.append(f"{row['timestamp'][11:16]}  {row['message']}\n")
+            lines.append("\n")
+    else:
+        day = args.date or db.current_day()
+        rows = db.get_logs(day)
+        lines = [f"# {day}\n\n"]
+        for row in rows:
+            lines.append(f"{row['timestamp'][11:16]}  {row['message']}\n")
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
         f.writelines(lines)
@@ -86,27 +98,37 @@ def cmd_edit_logs(args):
         edited = f.readlines()
     os.unlink(path)
 
-    new_entries = []
+    # Parse edited file — day headers set context for subsequent entries
+    entries_by_day = {}
+    current_day = None
     for line in edited:
         line = line.strip()
-        if not line or line.startswith("#"):
+        if not line:
+            continue
+        if line.startswith("#"):
+            current_day = line.lstrip("#").strip()
+            entries_by_day.setdefault(current_day, [])
+            continue
+        if current_day is None:
             continue
         parts = line.split(None, 1)
         if len(parts) != 2:
             continue
         time_str, message = parts
         try:
-            dt = datetime.strptime(f"{day}T{time_str}", "%Y-%m-%dT%H:%M")
+            dt = datetime.strptime(f"{current_day}T{time_str}", "%Y-%m-%dT%H:%M")
         except ValueError:
-            print(f"Skipping unparseable line: {line}")
+            print(f"Skipping: {line}")
             continue
-        new_entries.append((dt.strftime("%Y-%m-%dT%H:%M:%S"), message, day))
+        entries_by_day[current_day].append((dt.strftime("%Y-%m-%dT%H:%M:%S"), message, current_day))
 
     with db.get_conn() as conn:
-        conn.execute("DELETE FROM logs WHERE day = ?", (day,))
-        conn.executemany("INSERT INTO logs (timestamp, message, day) VALUES (?, ?, ?)", new_entries)
+        for d, entries in entries_by_day.items():
+            conn.execute("DELETE FROM logs WHERE day = ?", (d,))
+            conn.executemany("INSERT INTO logs (timestamp, message, day) VALUES (?, ?, ?)", entries)
 
-    print(f"Saved {len(new_entries)} entries for {day}.")
+    total = sum(len(e) for e in entries_by_day.values())
+    print(f"Saved {total} entries across {len(entries_by_day)} day(s).")
 
 
 def cmd_rm_block(args):
@@ -137,8 +159,9 @@ def main():
     p.add_argument("--date", help="YYYY-MM-DD, defaults to today")
     p.add_argument("--all", action="store_true", help="Show all logs across all days")
 
-    p = sub.add_parser("edit-logs", help="Edit a day's logs in $EDITOR")
+    p = sub.add_parser("edit-logs", help="Edit logs in $EDITOR")
     p.add_argument("--date", help="YYYY-MM-DD, defaults to today")
+    p.add_argument("--all", action="store_true", help="Edit all days")
 
     args = parser.parse_args()
     if args.command == "add-block":

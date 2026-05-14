@@ -64,6 +64,51 @@ def cmd_list_logs(args):
             print(f"  {ts}  {row['message']}")
 
 
+def cmd_edit_logs(args):
+    import os
+    import tempfile
+
+    day = args.date or db.current_day()
+    rows = db.get_logs(day)
+
+    lines = [f"# Logs — {day}\n\n"]
+    for row in rows:
+        ts = row["timestamp"][11:16]
+        lines.append(f"{ts}  {row['message']}\n")
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
+        f.writelines(lines)
+        path = f.name
+
+    os.system(f"${{EDITOR:-vim}} {path}")
+
+    with open(path) as f:
+        edited = f.readlines()
+    os.unlink(path)
+
+    new_entries = []
+    for line in edited:
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split(None, 1)
+        if len(parts) != 2:
+            continue
+        time_str, message = parts
+        try:
+            dt = datetime.strptime(f"{day}T{time_str}", "%Y-%m-%dT%H:%M")
+        except ValueError:
+            print(f"Skipping unparseable line: {line}")
+            continue
+        new_entries.append((dt.strftime("%Y-%m-%dT%H:%M:%S"), message, day))
+
+    with db.get_conn() as conn:
+        conn.execute("DELETE FROM logs WHERE day = ?", (day,))
+        conn.executemany("INSERT INTO logs (timestamp, message, day) VALUES (?, ?, ?)", new_entries)
+
+    print(f"Saved {len(new_entries)} entries for {day}.")
+
+
 def cmd_rm_block(args):
     if db.remove_plan(args.id):
         print(f"Removed block {args.id}.")
@@ -92,6 +137,9 @@ def main():
     p.add_argument("--date", help="YYYY-MM-DD, defaults to today")
     p.add_argument("--all", action="store_true", help="Show all logs across all days")
 
+    p = sub.add_parser("edit-logs", help="Edit a day's logs in $EDITOR")
+    p.add_argument("--date", help="YYYY-MM-DD, defaults to today")
+
     args = parser.parse_args()
     if args.command == "add-block":
         cmd_add_block(args)
@@ -101,6 +149,8 @@ def main():
         cmd_list_logs(args)
     elif args.command == "rm-block":
         cmd_rm_block(args)
+    elif args.command == "edit-logs":
+        cmd_edit_logs(args)
     else:
         parser.print_help()
 

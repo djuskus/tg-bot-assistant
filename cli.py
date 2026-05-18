@@ -76,9 +76,9 @@ def cmd_edit_logs(args):
 
         today = db.now_mdt().date()
         sunday = today - timedelta(days=(today.weekday() + 1) % 7)
-        week_days = {(sunday + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(7)}
+        two_weeks = {(sunday - timedelta(weeks=1) + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(14)}
         existing_days = {r["day"] for r in all_rows}
-        days = sorted(week_days | existing_days)
+        days = sorted(two_weeks | existing_days)
 
         entries = {}
         for row in all_rows:

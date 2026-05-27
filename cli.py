@@ -78,7 +78,7 @@ def cmd_edit_logs(args):
         sunday = today - timedelta(days=(today.weekday() + 1) % 7)
         two_weeks = {(sunday - timedelta(weeks=1) + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(14)}
         existing_days = {r["day"] for r in all_rows}
-        days = sorted(two_weeks | existing_days)
+        days = sorted(two_weeks | existing_days, reverse=True)
 
         entries = {}
         for row in all_rows:
